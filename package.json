@@ -1,0 +1,21 @@
+{
+  "name": "zerodha-mcp-server",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "start": "tsc -b && node --no-deprecation dist/index.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "dotenv": "^16.5.0",
+    "kiteconnect": "^5.0.1",
+    "qrcode-terminal": "^0.12.0",
+    "whatsapp-web.js": "^1.27.0"
+  },
+  "devDependencies": {
+    "@types/qrcode-terminal": "^0.12.2"
+  }
+}
