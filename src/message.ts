@@ -9,8 +9,10 @@ const monthExpiryMap: MonthExpiryMap = {
   march: "MARCH",
   april: "APRIL",
   may: "MAY",
-  june: "JUNE",
+  june: "JUN",
+  jun: "JUN",
   july: "JULY",
+  jul: "JUL",
   august: "AUGUST",
   september: "SEPTEMBER",
   october: "OCTOBER",
@@ -32,27 +34,43 @@ export interface TradeData {
 
 export function parseTradeMessage(body: string): TradeData | null {
   console.log("Parsing message...");
-  const lines = body.split("\n");
-  const data: Partial<TradeData> = {};
 
-  let expiry: string | undefined = ""; // Variable to store the expiry
+  // ✅ Trim and filter empty lines
+  const lines = body
+    .split("\n")
+    .map((l) => l.trim())
+    .filter(Boolean);
+
+  const data: Partial<TradeData> = {};
+  let expiry: string | undefined = "";
+
+  // ✅ Early skip check for disallowed keywords
+  if (body.toLowerCase().includes("pair trade")) {
+    console.log("❌ Pair Trade not allowed.");
+    return null;
+  }
 
   for (const line of lines) {
     const lowerLine = line.toLowerCase();
     console.log("Checking line:", line);
 
-    if (lowerLine.includes("buy")) {
-      const match = line.match(/buy\s+([A-Za-z]+)\s+(\d+)\s+(CE|PE)/i);
+    // ✅ Updated regex to support multi-word symbols like "power grid"
+    if (lowerLine.startsWith("buy")) {
+      const match = line.match(/buy\s+([a-z\s]+?)\s+(\d+)\s+(ce|pe)/i);
       if (match) {
-        data.symbol = match[1].toUpperCase();
+        data.symbol = match[1].trim().toUpperCase().replace(/\s+/g, ""); // ✅ Remove spaces from symbol
         data.strike = match[2];
         data.optionType = match[3].toUpperCase();
       }
     }
 
+    // ✅ Improved CMP parsing to handle "2.5/2.6" style
     if (lowerLine.includes("cmp")) {
-      const cmpMatch = line.match(/(\d+\.?\d*)/);
-      if (cmpMatch) data.cmp = parseFloat(cmpMatch[1]);
+      const cmpMatch = line.match(/cmp\s*[\d./]+/i);
+      if (cmpMatch) {
+        const nums = line.match(/(\d+\.?\d*)/g); // Extract all numbers
+        if (nums) data.cmp = parseFloat(nums[0]); // Use first value (conservative entry)
+      }
     }
 
     if (lowerLine.includes("buying range")) {
@@ -77,18 +95,18 @@ export function parseTradeMessage(body: string): TradeData | null {
       if (lotMatch) data.lotSize = parseInt(lotMatch[1]);
     }
 
-    // Detect the expiry month from the message and set the expiry
+    // ✅ Match expiry month by name
     for (const month in monthExpiryMap) {
       if (lowerLine.includes(month)) {
-        expiry = monthExpiryMap[month]; // Set the expiry from the map
-        break; // Exit loop once we find the month
+        expiry = monthExpiryMap[month];
+        break;
       }
     }
   }
 
-  // If symbol, strike, and optionType are present, add expiry
+  // ✅ Added fallback for expiry and final validity check
   if (data.symbol && data.strike && data.optionType) {
-    data.expiry = expiry; // Default to "MAY" if no expiry is found
+    data.expiry = expiry || "JUN"; // Default to "JUNE" if not found
     console.log("Parsed trade data:", data);
     return data as TradeData;
   }

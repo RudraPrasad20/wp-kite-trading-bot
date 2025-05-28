@@ -21,13 +21,22 @@ export async function initZerodha(): Promise<void> {
 }
 
 export async function placeOrder(data: TradeData): Promise<void> {
-  const tradingSymbol = `${data.symbol}25${data.expiry}${data.strike}${data.optionType}`;
-  console.log("Generated Trading Symbol: ", tradingSymbol);
+  if (!data.symbol || !data.strike || !data.optionType || !data.lotSize) {
+    console.error("❌ Missing trade data:", data);
+    return;
+  }
+  if (!data.range?.[1] && data.cmp === undefined) {
+    console.error("❌ No valid price available to place order.");
+    return;
+  }
+
+  const symbol = data.symbol.toUpperCase();
+  const expiryMonthShort = data.expiry?.slice(0, 3).toUpperCase();
+  const tradingSymbol = `${symbol}25${expiryMonthShort}${data.strike}${data.optionType}`;
+  console.log("Generated Trading Symbol:", tradingSymbol);
 
   const numberOfLots = 4;
-  const lotSize = data.lotSize!;
-  const buyQty = numberOfLots * lotSize;
-  const sellQty = (numberOfLots - 1) * lotSize;
+  const buyQty = numberOfLots * data.lotSize;
 
   try {
     await kc.placeOrder("regular", {
@@ -37,28 +46,15 @@ export async function placeOrder(data: TradeData): Promise<void> {
       quantity: buyQty,
       product: "NRML",
       order_type: "LIMIT",
-      price: data.range?.[1] || data.cmp!,
+      price: data.range?.[1] ?? data.cmp!,
     });
-    console.log("Placing order with data:", data);
-    console.log("✅ Order placed for", tradingSymbol);
-    console.log(`✅ Entered ${numberOfLots} lots of ${tradingSymbol}`);
 
-    setTimeout(async () => {
-      try {
-        await kc.placeOrder("regular", {
-          exchange: "NFO",
-          tradingsymbol: tradingSymbol,
-          transaction_type: "SELL",
-          quantity: sellQty,
-          product: "NRML",
-          order_type: "MARKET",
-        });
-        console.log(`⏳ Exited ${numberOfLots - 1} lots after 3.5 minutes`);
-      } catch (err: any) {
-        console.error("❌ Exit order failed:", err.message);
-      }
-    }, 210000); // 3.5 minutes
+    console.log("✅ Limit order placed:", {
+      tradingSymbol,
+      buyQty,
+      price: data.range?.[1] ?? data.cmp!,
+    });
   } catch (err: any) {
-    console.error("❌ Order placement failed:", err.message);
+    console.error("❌ Order placement failed:", err.message, err);
   }
 }
